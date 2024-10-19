@@ -1,6 +1,7 @@
 import { User } from "../models/user.model.js";
 import bcrypt from "bcryptjs";
 import { generateToken } from "../utils/generateToken.js";
+import { sendVerificationEmail } from "../mailtrap/email.js";
 
 const signup = async (req, res) => {
   const { email, password, name } = req.body;
@@ -9,7 +10,7 @@ const signup = async (req, res) => {
     if (!email || !password || !name)
       throw new Error("All fields are required");
 
-    //   check if user already exists
+    // check if user already exists
     const userAlreadyExists = await User.findOne({ email });
 
     if (userAlreadyExists)
@@ -22,7 +23,7 @@ const signup = async (req, res) => {
       Math.random() * 900000 + 100000
     ).toString();
 
-    //   create new user
+    // create new user
     const newUser = await User.create({
       email,
       password: hashedPassword,
@@ -33,8 +34,11 @@ const signup = async (req, res) => {
 
     const currentUser = await User.findById(newUser._id).select("-password");
 
-    //   generate token
+    // generate token
     generateToken(res, newUser._id);
+
+    // send verification code
+    await sendVerificationEmail(currentUser.email, verificationToken);
 
     return res.status(201).json({
       success: true,
