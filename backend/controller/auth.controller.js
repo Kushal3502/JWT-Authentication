@@ -89,11 +89,41 @@ const verifyEmail = async (req, res) => {
 };
 
 const login = async (req, res) => {
-  res.send("login");
+  const { email, password } = req.body;
+
+  if (!email || !password) throw new Error("All fields are required");
+
+  const user = await User.findOne({ email });
+
+  if (!user)
+    return res
+      .status(400)
+      .json({ success: false, message: "Invalid credentials" });
+
+  const isPasswordValid = await bcrypt.compare(password, user.password);
+
+  if (!isPasswordValid)
+    return res
+      .status(400)
+      .json({ success: false, message: "Invalid credentials" });
+
+  generateToken(res, user._id);
+
+  user.lastLogin = Date.now();
+
+  await user.save();
+
+  const currentUser = await User.findById(user._id).select("-password");
+
+  return res
+    .status(200)
+    .json({ success: true, message: "User logged in", currentUser });
 };
 
 const logout = async (req, res) => {
-  res.send("logout");
+  res.clearCookie("token");
+  return res.status(200).json({ success: true, message: "User logged out" });
 };
+
 
 export { signup, login, logout, verifyEmail };
