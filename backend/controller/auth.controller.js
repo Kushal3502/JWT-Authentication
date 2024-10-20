@@ -1,7 +1,12 @@
 import { User } from "../models/user.model.js";
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
 import { generateToken } from "../utils/generateToken.js";
-import { sendVerificationEmail, sendWelcomeEmail } from "../mailtrap/email.js";
+import {
+  sendPasswordResetEmail,
+  sendVerificationEmail,
+  sendWelcomeEmail,
+} from "../mailtrap/email.js";
 
 const signup = async (req, res) => {
   const { email, password, name } = req.body;
@@ -89,35 +94,42 @@ const verifyEmail = async (req, res) => {
 };
 
 const login = async (req, res) => {
-  const { email, password } = req.body;
+  try {
+    const { email, password } = req.body;
 
-  if (!email || !password) throw new Error("All fields are required");
+    if (!email || !password) throw new Error("All fields are required");
 
-  const user = await User.findOne({ email });
+    const user = await User.findOne({ email });
 
-  if (!user)
+    if (!user)
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid credentials" });
+
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+
+    if (!isPasswordValid)
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid credentials" });
+
+    generateToken(res, user._id);
+
+    user.lastLogin = Date.now();
+
+    await user.save();
+
+    const currentUser = await User.findById(user._id).select("-password");
+
     return res
-      .status(400)
-      .json({ success: false, message: "Invalid credentials" });
-
-  const isPasswordValid = await bcrypt.compare(password, user.password);
-
-  if (!isPasswordValid)
-    return res
-      .status(400)
-      .json({ success: false, message: "Invalid credentials" });
-
-  generateToken(res, user._id);
-
-  user.lastLogin = Date.now();
-
-  await user.save();
-
-  const currentUser = await User.findById(user._id).select("-password");
-
-  return res
-    .status(200)
-    .json({ success: true, message: "User logged in", currentUser });
+      .status(200)
+      .json({ success: true, message: "User logged in", currentUser });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
 };
 
 const logout = async (req, res) => {
@@ -125,5 +137,39 @@ const logout = async (req, res) => {
   return res.status(200).json({ success: true, message: "User logged out" });
 };
 
+const forgotPassword = async (req, res) => {
+  const { email } = req.body;
 
-export { signup, login, logout, verifyEmail };
+  try {
+    const user = await User.findOne({ email });
+
+    if (!user)
+      return res
+        .status(400)
+        .json({ success: false, message: "User doesn't exists" });
+
+    const resetToken = crypto.randomBytes(20).toString("hex");
+    const resetTokenExpiry = Date.now() + 1 * 60 * 60 * 1000;
+
+    user.resetPasswordToken = resetToken;
+    user.resetPasswordTokenExpiresAt = resetTokenExpiry;
+
+    await user.save();
+
+    await sendPasswordResetEmail(
+      email,
+      `${process.env.CLIENT_URL}/reset-password/${resetToken}`
+    );
+
+    return res
+      .status(200)
+      .json({ success: true, message: "Password reset mail sent" });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+export { signup, login, logout, verifyEmail, forgotPassword };
