@@ -4,6 +4,7 @@ import crypto from "crypto";
 import { generateToken } from "../utils/generateToken.js";
 import {
   sendPasswordResetEmail,
+  sendPasswordResetSuccessEmail,
   sendVerificationEmail,
   sendWelcomeEmail,
 } from "../mailtrap/email.js";
@@ -172,4 +173,68 @@ const forgotPassword = async (req, res) => {
   }
 };
 
-export { signup, login, logout, verifyEmail, forgotPassword };
+const resetPassword = async (req, res) => {
+  const { token } = req.params;
+  const { password } = req.body;
+
+  try {
+    const user = await User.findOne({
+      resetPasswordToken: token,
+      resetPasswordTokenExpiresAt: {
+        $gt: Date.now(),
+      },
+    });
+
+    if (!user)
+      return res
+        .status(400)
+        .json({ success: false, message: "User doesn't exists" });
+
+    const newPassword = await bcrypt.hash(password, 10);
+
+    user.password = newPassword;
+    user.resetPasswordToken = undefined;
+    user.resetPasswordTokenExpiresAt = undefined;
+
+    await user.save();
+
+    await sendPasswordResetSuccessEmail(user.email);
+
+    return res
+      .status(200)
+      .json({ success: true, message: "Password reset successful" });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+const checkAuth = async (req, res) => {
+  try {
+    const user = await User.findById(req.userId).select("-password");
+
+    if (!user)
+      return res
+        .status(400)
+        .json({ success: false, message: "User doesn't exists" });
+
+    return res.status(200).json({ success: true, user });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+export {
+  signup,
+  login,
+  logout,
+  verifyEmail,
+  forgotPassword,
+  resetPassword,
+  checkAuth,
+};
