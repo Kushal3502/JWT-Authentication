@@ -1,11 +1,14 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { post } from "../utils/api";
+import { useDispatch } from "react-redux";
+import { loginSuccess } from "../store/authSlice";
 
 function EmailVerification() {
   const [code, setCode] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
+  const dispatch = useDispatch();
 
   const handleSignup = async (e) => {
     e.preventDefault();
@@ -14,6 +17,8 @@ function EmailVerification() {
     try {
       const response = await post("/verify-email", { code });
       console.log(response);
+      dispatch(loginSuccess(response.currentUser));
+      localStorage.setItem("user",JSON.stringify(response.currentUser))
       setIsSubmitting(false);
       navigate("/");
     } catch (error) {
