@@ -1,8 +1,23 @@
 import React, { useEffect, useState } from "react";
+import { post } from "../utils/api";
+import { useNavigate } from "react-router-dom";
 
 function Dashboard() {
   const [auth, setAuth] = useState(false);
   const [userName, setUserName] = useState("");
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    console.log("Logout");
+    try {
+      const response = await post("/logout");
+      console.log(response);
+      localStorage.removeItem("user");
+      navigate("/login");
+    } catch (error) {
+      console.error("Logout Error:", error.response?.data || error.message);
+    }
+  }
 
   useEffect(() => {
     const user = localStorage.getItem("user");
@@ -54,7 +69,7 @@ function Dashboard() {
         {/* Header */}
         <header className="flex items-center justify-between mb-8">
           <h2 className="text-3xl font-bold">Welcome, {userName}</h2>
-          <button className="px-4 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600">
+          <button className="px-4 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600" onClick={handleLogout}>
             Logout
           </button>
         </header>

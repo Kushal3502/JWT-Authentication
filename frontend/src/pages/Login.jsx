@@ -11,11 +11,12 @@ function Login() {
     formState: { errors, isSubmitting },
   } = useForm({ mode: "onChange" });
 
-  const handleSignup = async (data) => {
+  const handleLogin = async (data) => {
     console.log(data);
     try {
       const response = await post("/login", data);
       console.log(response);
+      localStorage.setItem("user",JSON.stringify(response.currentUser))
       navigate("/");
     } catch (error) {
       console.error("Login Error:", error.response?.data || error.message);
@@ -28,7 +29,7 @@ function Login() {
         <h1 className="text-3xl font-extrabold text-center text-gray-800">
           Login
         </h1>
-        <form onSubmit={handleSubmit(handleSignup)} className="space-y-5">
+        <form onSubmit={handleSubmit(handleLogin)} className="space-y-5">
           <div>
             <label className="block text-sm font-semibold text-gray-700">
               Email:
